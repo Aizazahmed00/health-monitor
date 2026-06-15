@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Health Monitor · Live</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#080b14"/>
+  <link rel="icon" href="icon-192.png"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #080b14;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem 3rem;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 {
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.5px;
+    }
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-top: 6px;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: blink 2s infinite;
+    }
+    .dot.red { background: #ef4444; animation: none; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      max-width: 960px;
+      margin: 0 auto 20px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 18px;
+      padding: 1.3rem 1.4rem 1.1rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform .15s, border-color .2s;
+    }
+    .card:hover { transform: translateY(-2px); border-color: #334155; }
+
+    .bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 18px 18px 0 0;
+    }
+
+    .card-icon { font-size: 1.5rem; margin-bottom: .55rem; line-height: 1; }
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+    .card-value {
+      font-size: 2.1rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .card-unit {
+      font-size: .9rem;
+      font-weight: 400;
+      color: #94a3b8;
+      margin-left: 3px;
+    }
+    .card-sub { font-size: .72rem; color: #475569; margin-top: 6px; }
+
+    .badge {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+    .badge-green  { background:#052e16; color:#4ade80; }
+    .badge-red    { background:#450a0a; color:#f87171; }
+    .badge-yellow { background:#422006; color:#fbbf24; }
+    .badge-gray   { background:#1e293b; color:#94a3b8; }
+
+    /* colour themes */
+    .c-red    .bar { background: linear-gradient(90deg,#ef4444,#f87171); }
+    .c-red    .card-value { color:#f87171; }
+    .c-blue   .bar { background: linear-gradient(90deg,#3b82f6,#60a5fa); }
+    .c-blue   .card-value { color:#60a5fa; }
+    .c-orange .bar { background: linear-gradient(90deg,#f97316,#fb923c); }
+    .c-orange .card-value { color:#fb923c; }
+    .c-amber  .bar { background: linear-gradient(90deg,#d97706,#fbbf24); }
+    .c-amber  .card-value { color:#fbbf24; }
+    .c-teal   .bar { background: linear-gradient(90deg,#14b8a6,#2dd4bf); }
+    .c-teal   .card-value { color:#2dd4bf; }
+    .c-pink   .bar { background: linear-gradient(90deg,#db2777,#f472b6); }
+    .c-pink   .card-value { color:#f472b6; }
+    .c-purple .bar { background: linear-gradient(90deg,#7c3aed,#a78bfa); }
+    .c-purple .card-value { color:#a78bfa; }
+
+    /* Timestamp full-width */
+    .full { grid-column: 1 / -1; display:flex; align-items:center; gap:1rem; }
+    .full .card-value { font-size: 1.2rem; }
+
+    /* ── Error / info box ── */
+    .infobox {
+      max-width: 960px;
+      margin: 0 auto 20px;
+      padding: 1rem 1.25rem;
+      border-radius: 14px;
+      font-size: .85rem;
+      line-height: 1.6;
+      display: none;
+    }
+    .infobox.err  { background:#1f0a0a; border:1px solid #7f1d1d; color:#fca5a5; }
+    .infobox.info { background:#0c1a2e; border:1px solid #1e3a5f; color:#93c5fd; }
+
+    /* ── Raw data ── */
+    .raw-box {
+      max-width: 960px;
+      margin: 0 auto;
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 18px;
+      padding: 1.1rem 1.4rem;
+    }
+    .raw-box h3 {
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+    .raw-box pre {
+      font-family: 'SF Mono','Fira Code',monospace;
+      font-size: .78rem;
+      color: #64748b;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+
+    /* retry button */
+    button.retry {
+      margin-top: 10px;
+      padding: 6px 18px;
+      border-radius: 8px;
+      border: 1px solid #7f1d1d;
+      background: transparent;
+      color: #fca5a5;
+      cursor: pointer;
+      font-size: .82rem;
+    }
+    button.retry:hover { background:#7f1d1d22; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>❤️ Health Monitoring Dashboard</h1>
+  <div class="live-badge">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">Connecting to Firebase…</span>
+  </div>
+</header>
+
+<div class="infobox info" id="infobox"></div>
+<div class="infobox err"  id="errbox"></div>
+
+<div class="grid" id="grid">
+  <div style="grid-column:1/-1;text-align:center;padding:3rem;color:#334155;">
+    ⏳ Loading sensor data…
+  </div>
+</div>
+
+<div class="raw-box">
+  <h3>Raw sensor payload</h3>
+  <pre id="raw">—</pre>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const DB_URL   = "https://health-monitoring-44833-default-rtdb.firebaseio.com";
+const DB_TOKEN = "UhQlq3YYcccvaEgQdYxFnby34MwP5JQzns30pPrG";
+const PATH     = "/sensor";            // change if your path is different
+const POLL_MS  = 3000;                 // refresh every 3 seconds
+// ───────────────────────────────────────────────────────────────────────────
+
+let lastTimestamp = null;
+let pollTimer = null;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function setStatus(live, text) {
+  const dot  = document.getElementById("status-dot");
+  const span = document.getElementById("status-text");
+  dot.className  = "dot" + (live ? "" : " red");
+  span.textContent = text;
+}
+function showErr(msg)  {
+  const b = document.getElementById("errbox");
+  b.style.display = "block";
+  b.innerHTML = "⚠️ " + msg + "<br><button class='retry' onclick='fetchData()'>Retry now</button>";
+}
+function hideErr() { document.getElementById("errbox").style.display = "none"; }
+
+function badge(label, cls) {
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+function hrBadge(v) {
+  if (v < 0)   return badge("No signal", "badge-gray");
+  if (v < 60)  return badge("Low", "badge-yellow");
+  if (v > 100) return badge("High", "badge-red");
+  return badge("Normal ✓", "badge-green");
+}
+function spo2Badge(v) {
+  if (v < 0)   return badge("No signal", "badge-gray");
+  if (v < 90)  return badge("Critical", "badge-red");
+  if (v < 95)  return badge("Low", "badge-yellow");
+  return badge("Normal ✓", "badge-green");
+}
+function tempBadge(c) {
+  if (c <= 0)   return badge("No signal", "badge-gray");
+  if (c > 38.5) return badge("High fever", "badge-red");
+  if (c > 37.5) return badge("Fever", "badge-yellow");
+  return badge("Normal ✓", "badge-green");
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render(d) {
+  const now = new Date().toLocaleTimeString();
+
+  // Detect if sensor is sending real data
+  const hasHR   = d.heartrate > 0;
+  const hasSpo2 = d.spo2 > 0;
+  const hasTemp = d.temperature_c > 0;
+
+  const cards = [
+    {
+      col: "c-red", icon: "🫀",
+      label: "Heart Rate",
+      value: hasHR ? d.heartrate : "—",
+      unit: hasHR ? "bpm" : "",
+      sub: hasHR ? "Beats per minute" : "Place finger on sensor",
+      badge: hrBadge(d.heartrate)
+    },
+    {
+      col: "c-blue", icon: "💧",
+      label: "SpO₂",
+      value: hasSpo2 ? d.spo2 + "%" : "—",
+      unit: "",
+      sub: hasSpo2 ? "Blood oxygen saturation" : "Place finger on sensor",
+      badge: spo2Badge(d.spo2)
+    },
+    {
+      col: "c-orange", icon: "🌡️",
+      label: "Temperature",
+      value: hasTemp ? d.temperature_c : "—",
+      unit: hasTemp ? "°C" : "",
+      sub: hasTemp ? d.temperature_f + " °F" : "Sensor initialising…",
+      badge: tempBadge(d.temperature_c)
+    },
+    {
+      col: "c-amber", icon: "🌡️",
+      label: "Temperature",
+      value: hasTemp ? d.temperature_f : "—",
+      unit: hasTemp ? "°F" : "",
+      sub: hasTemp ? d.temperature_c + " °C" : "Sensor initialising…",
+      badge: tempBadge(d.temperature_c)
+    },
+    {
+      col: "c-teal", icon: "📡",
+      label: "IR Signal",
+      value: d.ir,
+      unit: "",
+      sub: "Infrared LED (raw ADC)",
+      badge: null
+    },
+    {
+      col: "c-pink", icon: "🔴",
+      label: "Red Signal",
+      value: d.red,
+      unit: "",
+      sub: "Red LED (raw ADC)",
+      badge: null
+    }
+  ];
+
+  let html = cards.map(c => `
+    <div class="card ${c.col}">
+      <div class="bar"></div>
+      <div class="card-icon">${c.icon}</div>
+      <div class="card-label">${c.label}</div>
+      <div class="card-value">${c.value}<span class="card-unit">${c.unit}</span></div>
+      <div class="card-sub">${c.sub}</div>
+      ${c.badge ?? ""}
+    </div>
+  `).join("");
+
+  // Timestamp card
+  const changed = lastTimestamp !== d.timestamp;
+  lastTimestamp = d.timestamp;
+  html += `
+    <div class="card c-purple full">
+      <div class="bar"></div>
+      <div>
+        <div class="card-icon">🕐</div>
+        <div class="card-label">Last updated</div>
+        <div class="card-value">${now}</div>
+        <div class="card-sub">Firebase timestamp: ${d.timestamp} · ${changed ? "New data received" : "No change since last poll"}</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("grid").innerHTML = html;
+  document.getElementById("raw").textContent = JSON.stringify(d, null, 2);
+}
+
+// ── Fetch from Firebase REST API ───────────────────────────────────────────
+async function fetchData() {
+  hideErr();
+  const url = `${DB_URL}${PATH}.json?auth=${DB_TOKEN}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`HTTP ${res.status} — ${body}`);
+    }
+    const data = await res.json();
+    if (!data) throw new Error("No data at " + PATH + " — check the database path.");
+    render(data);
+    setStatus(true, "Live · auto-refreshes every 3 s · " + DB_URL);
+  } catch (err) {
+    setStatus(false, "Connection error");
+    showErr(err.message);
+  }
+}
+
+// ── Start polling ──────────────────────────────────────────────────────────
+fetchData();
+pollTimer = setInterval(fetchData, POLL_MS);
+
+// ── Register service worker (enables "Add to Home Screen" app behaviour) ───
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
